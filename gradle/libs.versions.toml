@@ -15,6 +15,8 @@ coroutines = "1.10.1"
 serialization = "1.8.0"
 ksp = "2.3.10" # Must match your Kotlin version (2.2.10)
 
+datastorePreferences = "1.1.2"
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -45,6 +47,7 @@ androidx-room-compiler = { group = "androidx.room", name = "room-compiler", vers
 # Coroutines & Serialization
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastorePreferences" }
 
 
 

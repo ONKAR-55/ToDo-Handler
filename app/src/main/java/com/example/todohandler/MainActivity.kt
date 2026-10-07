@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -16,27 +18,55 @@ import com.example.todohandler.ui.AppNavigation
 import com.example.todohandler.ui.TaskViewModel
 import com.example.todohandler.ui.TaskViewModelFactory
 import com.example.todohandler.ui.theme.ToDoHandlerTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.example.todohandler.ui.BottomNavigationBar
+import androidx.navigation.compose.currentBackStackEntryAsState
+import com.example.todohandler.ui.Screen
+
+import com.example.todohandler.data.local.SettingsManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // Initialize Database and Repository
+        // Initialize Database, Settings, and Repository
         val database = AppDatabase.getDatabase(this)
         val repository = TaskRepository(database.taskDao())
-        val factory = TaskViewModelFactory(repository)
+        val settingsManager = SettingsManager(this)
+        val factory = TaskViewModelFactory(repository, settingsManager)
 
         enableEdgeToEdge()
         setContent {
-            ToDoHandlerTheme {
-                val navController = rememberNavController()
-                val taskViewModel: TaskViewModel = viewModel(factory = factory)
+            val taskViewModel: TaskViewModel = viewModel(factory = factory)
+            val theme by taskViewModel.theme.collectAsState()
 
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            val isDark = when (theme) {
+                "Dark" -> true
+                "Light" -> false
+                else -> isSystemInDarkTheme()
+            }
+
+            ToDoHandlerTheme(darkTheme = isDark) {
+                val navController = rememberNavController()
+                val currentScreen by navController.currentBackStackEntryAsState()
+
+                val currentRoute = currentScreen?.destination?.route
+                val showBottomBar = currentRoute in listOf(
+                    Screen.Dashboard.route,
+                    Screen.History.route,
+                    Screen.Settings.route
+                )
+
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                    bottomBar = { if (showBottomBar) BottomNavigationBar(navController) }
+                ) { paddingValues ->
                     AppNavigation(
                         navController = navController,
                         taskViewModel = taskViewModel,
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.fillMaxSize().padding(paddingValues)
                     )
                 }
             }

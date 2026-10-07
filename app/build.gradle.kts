@@ -65,4 +65,7 @@ dependencies {
     // Coroutines & Serialization
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    
+    // DataStore
+    implementation(libs.androidx.datastore.preferences)
 }

@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 enum class TaskStatus {
-    PENDING, IN_PROGRESS, COMPLETED, OVERDUE, MISSED
+    PENDING, IN_PROGRESS, COMPLETED, OVERDUE, MISSED, DELETED
 }
 
 enum class TaskPriority {

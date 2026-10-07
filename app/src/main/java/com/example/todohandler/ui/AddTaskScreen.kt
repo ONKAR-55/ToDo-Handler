@@ -1,19 +1,28 @@
 package com.example.todohandler.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,7 +30,27 @@ fun AddTaskScreen(navController: NavController, viewModel: TaskViewModel) {
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedPriority by remember { mutableStateOf("Medium") }
-    var selectedCategory by remember { mutableStateOf("College") }
+    var selectedCategory by remember { mutableStateOf("Personal") }
+    
+    var showDatePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(false) }
+    
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis())
+    val timePickerState = rememberTimePickerState(initialHour = 7, initialMinute = 0)
+    
+    var durationText by remember { mutableStateOf("") }
+    
+    val dateFormatter = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
+    val timeFormatter = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
+    
+    val selectedDateText = datePickerState.selectedDateMillis?.let { dateFormatter.format(Date(it)) } ?: "Select Date"
+    val calendar = remember(timePickerState.hour, timePickerState.minute) {
+        Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+            set(Calendar.MINUTE, timePickerState.minute)
+        }
+    }
+    val selectedTimeText = timeFormatter.format(calendar.time)
 
     Scaffold(
         topBar = {
@@ -36,7 +65,36 @@ fun AddTaskScreen(navController: NavController, viewModel: TaskViewModel) {
         },
         bottomBar = {
             Button(
-                onClick = { /* TODO: Save logic */ navController.navigateUp() },
+                onClick = {
+                    if (title.isNotBlank()) {
+                        val selectedDateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+                        val startCalendar = Calendar.getInstance().apply {
+                            timeInMillis = selectedDateMillis
+                            set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                            set(Calendar.MINUTE, timePickerState.minute)
+                        }
+                        val startTimeMillis = startCalendar.timeInMillis
+                        val duration = durationText.toIntOrNull() ?: 60
+
+                        viewModel.addTask(
+                            com.example.todohandler.data.model.TaskEntity(
+                                title = title,
+                                description = description,
+                                category = selectedCategory,
+                                priority = when (selectedPriority) {
+                                    "High" -> com.example.todohandler.data.model.TaskPriority.HIGH
+                                    "Medium" -> com.example.todohandler.data.model.TaskPriority.MEDIUM
+                                    else -> com.example.todohandler.data.model.TaskPriority.LOW
+                                },
+                                status = com.example.todohandler.data.model.TaskStatus.PENDING,
+                                dateMillis = selectedDateMillis,
+                                startTimeMillis = startTimeMillis,
+                                durationMinutes = duration
+                            )
+                        )
+                        navController.navigateUp()
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp)
@@ -71,24 +129,72 @@ fun AddTaskScreen(navController: NavController, viewModel: TaskViewModel) {
             )
 
             // Section 2: Execution Window (Simplified)
+            if (showDatePicker) {
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = { showDatePicker = false }) { Text("OK") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            }
+            
+            if (showTimePicker) {
+                AlertDialog(
+                    onDismissRequest = { showTimePicker = false },
+                    title = { Text("Select Time") },
+                    text = { TimePicker(state = timePickerState) },
+                    confirmButton = {
+                        TextButton(onClick = { showTimePicker = false }) { Text("OK") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
+                    }
+                )
+            }
+
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Execution Window", fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         OutlinedTextField(
-                            value = "Oct 2, 2026",
+                            value = selectedDateText,
                             onValueChange = {},
+                            readOnly = true,
                             label = { Text("Target Date") },
+                            trailingIcon = {
+                                IconButton(onClick = { showDatePicker = true }) {
+                                    Icon(Icons.Filled.DateRange, contentDescription = "Select Date")
+                                }
+                            },
                             modifier = Modifier.weight(1f)
                         )
                         OutlinedTextField(
-                            value = "07:00 PM",
+                            value = selectedTimeText,
                             onValueChange = {},
+                            readOnly = true,
                             label = { Text("Start Time") },
+                            trailingIcon = {
+                                IconButton(onClick = { showTimePicker = true }) {
+                                    Icon(Icons.Filled.AccessTime, contentDescription = "Select Time")
+                                }
+                            },
                             modifier = Modifier.weight(1f)
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = durationText,
+                        onValueChange = { durationText = it },
+                        label = { Text("Time Window (minutes)") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
@@ -99,7 +205,7 @@ fun AddTaskScreen(navController: NavController, viewModel: TaskViewModel) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceAround
                     ) {
                         listOf("Low", "Medium", "High").forEach { priority ->
                             FilterChip(
@@ -115,7 +221,7 @@ fun AddTaskScreen(navController: NavController, viewModel: TaskViewModel) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
                         listOf("College", "Work", "Personal").forEach { category ->
                             FilterChip(
