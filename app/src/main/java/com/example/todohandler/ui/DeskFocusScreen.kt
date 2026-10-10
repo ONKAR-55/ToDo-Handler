@@ -20,14 +20,16 @@ import androidx.navigation.NavController
 import com.example.todohandler.data.model.TaskStatus
 import com.example.todohandler.domain.TaskLogic
 import kotlinx.coroutines.delay
+import java.util.Locale
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 fun DeskFocusScreen(navController: NavController, viewModel: TaskViewModel) {
     val selectedTask by viewModel.selectedTask.collectAsState()
     var isRunning by remember { mutableStateOf(true) }
     
-    var remainingSeconds by remember(selectedTask) { 
-        mutableStateOf(
+    var remainingSeconds by remember(selectedTask) {
+        mutableIntStateOf(
             selectedTask?.let { task ->
                 TaskLogic.calculateRemainingSeconds(task)
             } ?: (60 * 60)
@@ -36,7 +38,7 @@ fun DeskFocusScreen(navController: NavController, viewModel: TaskViewModel) {
 
     LaunchedEffect(isRunning) {
         while (isRunning && remainingSeconds > 0) {
-            delay(1000)
+            delay(1000.milliseconds)
             remainingSeconds--
         }
     }
@@ -69,7 +71,7 @@ fun DeskFocusScreen(navController: NavController, viewModel: TaskViewModel) {
             val minutes = remainingSeconds / 60
             val seconds = remainingSeconds % 60
             Text(
-                text = String.format("%02d:%02d", minutes, seconds),
+                text = String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds),
                 color = Color.Gray,
                 fontSize = 96.sp,
                 fontWeight = FontWeight.Bold

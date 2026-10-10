@@ -12,6 +12,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +30,7 @@ import java.util.Date
 import java.util.Locale
 
 import com.example.todohandler.domain.TaskLogic
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,6 +51,10 @@ fun DashboardScreen(navController: NavController, viewModel: TaskViewModel) {
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDateMillis)
 
+    val refreshState = rememberPullToRefreshState()
+    var isRefreshing by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
     if (showDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -65,7 +72,7 @@ fun DashboardScreen(navController: NavController, viewModel: TaskViewModel) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("ToDo Handler", fontWeight = FontWeight.Bold) }
+                title = { Text("ToDo Handler 👍", fontWeight = FontWeight.Bold) }
             )
         },
         floatingActionButton = {
@@ -78,103 +85,135 @@ fun DashboardScreen(navController: NavController, viewModel: TaskViewModel) {
             }
         }
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
+        PullToRefreshBox(
+            state = refreshState,
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                coroutineScope.launch {
+                    isRefreshing = true
+                    viewModel.refreshData()
+                    isRefreshing = false
+                }
+            },
+            modifier = Modifier.fillMaxSize()
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
-                val dateString = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(selectedDateMillis))
-                Text(
-                    text = dateString,
-                    fontSize = 25.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable { showDatePicker = true }
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { navController.navigate(Screen.Recap.route) }) {
-                        Icon(Icons.Filled.Assessment, contentDescription = "Recap")
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val dateString = SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(
+                        Date(selectedDateMillis)
+                    )
+                    Text(
+                        text = dateString,
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { showDatePicker = true }
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { navController.navigate(Screen.Recap.route) }) {
+                            Icon(Icons.Filled.Assessment, contentDescription = "Recap")
+                        }
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Text(
+                                "$streakDays Day Streak",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    ) {
-                        Text(
-                            "$streakDays Day Streak",
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.primary
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                MetricsRow(filteredInProgress, filteredUpcoming, filteredMissed)
+
+                Spacer(modifier = Modifier.height(16.dp))
+                CategoryFilter(selectedCategory, onCategorySelect = { viewModel.setCategory(it) })
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("Active Right Now", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val activeTasks =
+                    filteredTasks.filter { it.status == com.example.todohandler.data.model.TaskStatus.IN_PROGRESS }
+                val pendingTasks =
+                    filteredTasks.filter { it.status == com.example.todohandler.data.model.TaskStatus.PENDING }
+
+                if (activeTasks.isNotEmpty()) {
+                    activeTasks.forEach { activeTask ->
+                        ActiveTaskCard(
+                            task = activeTask,
+                            onDeskClick = { navController.navigate(Screen.DeskFocus.route) },
+                            onClick = {
+                                viewModel.selectTask(activeTask)
+                                navController.navigate(Screen.TaskDetail.route)
+                            }
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
+                } else {
+                    Text(
+                        "No active task right now",
+                        color = Color.Gray,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            MetricsRow(filteredInProgress, filteredUpcoming, filteredMissed)
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("Pending Tasks", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(16.dp))
-            CategoryFilter(selectedCategory, onCategorySelect = { viewModel.setCategory(it) })
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("Active Right Now", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            val activeTask = filteredTasks.find { it.status == com.example.todohandler.data.model.TaskStatus.IN_PROGRESS }
-            val pendingTasks = filteredTasks.filter { it.status == com.example.todohandler.data.model.TaskStatus.PENDING }
-
-            if (activeTask != null) {
-                ActiveTaskCard(
-                    task = activeTask,
-                    onDeskClick = { navController.navigate(Screen.DeskFocus.route) },
-                    onClick = {
-                        viewModel.selectTask(activeTask)
-                        navController.navigate(Screen.TaskDetail.route)
+                if (pendingTasks.isNotEmpty()) {
+                    pendingTasks.forEach { task ->
+                        PendingTaskCard(title = task.title, time = task.startTimeMillis, onClick = {
+                            viewModel.selectTask(task)
+                            navController.navigate(Screen.TaskDetail.route)
+                        }, duration = task.durationMinutes)
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                )
-            } else {
-                Text("No active task right now", color = Color.Gray, modifier = Modifier.padding(vertical = 16.dp))
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-            Text("Pending Tasks", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (pendingTasks.isNotEmpty()) {
-                pendingTasks.forEach { task ->
-                    PendingTaskCard(title = task.title, time = "Due Today", onClick = {
-                        viewModel.selectTask(task)
-                        navController.navigate(Screen.TaskDetail.route)
-                    })
-                    Spacer(modifier = Modifier.height(8.dp))
+                } else {
+                    Text(
+                        "No pending tasks",
+                        color = Color.Gray,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
                 }
-            } else {
-                Text("No pending tasks", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Completed Tasks", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Completed Tasks", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(8.dp))
 
-            if (filteredCompletedTasks.isNotEmpty()) {
-                filteredCompletedTasks.forEach { task ->
-                    PendingTaskCard(title = task.title, time = "Completed", onClick = {
-                        viewModel.selectTask(task)
-                        navController.navigate(Screen.TaskDetail.route)
-                    })
-                    Spacer(modifier = Modifier.height(8.dp))
+                if (filteredCompletedTasks.isNotEmpty()) {
+                    filteredCompletedTasks.forEach { task ->
+                        PendingTaskCard(title = task.title, time = task.startTimeMillis, onClick = {
+                            viewModel.selectTask(task)
+                            navController.navigate(Screen.TaskDetail.route)
+                        }, duration = task.durationMinutes)
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                } else {
+                    Text(
+                        "No completed tasks",
+                        color = Color.Gray,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
                 }
-            } else {
-                Text("No completed tasks", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
     }
 }
@@ -309,16 +348,29 @@ fun ActiveTaskCard(task: TaskEntity, onDeskClick: () -> Unit, onClick: () -> Uni
 }
 
 @Composable
-fun PendingTaskCard(title: String, time: String, onClick: () -> Unit = {}) {
+fun PendingTaskCard(title: String, time: Long, onClick: () -> Unit = {}, duration: Int) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(time, fontSize = 12.sp, color = Color.Gray)
+        Row {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(time)), fontSize = 12.sp, color = Color.Gray)
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(
+                modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                horizontalAlignment = Alignment.End) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Text("$duration min", fontSize = 20.sp, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(8.dp))
+                }
+            }
         }
     }
 }

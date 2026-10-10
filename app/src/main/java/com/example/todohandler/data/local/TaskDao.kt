@@ -14,6 +14,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY dateMillis ASC, startTimeMillis ASC")
     fun getAllTasks(): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks")
+    suspend fun getAllTasksSync(): List<TaskEntity>
+
     @Query("SELECT * FROM tasks WHERE dateMillis >= :startOfDay AND dateMillis <= :endOfDay ORDER BY startTimeMillis ASC")
     fun getTasksForDate(startOfDay: Long, endOfDay: Long): Flow<List<TaskEntity>>
 

@@ -25,6 +25,13 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.todohandler.ui.Screen
 
 import com.example.todohandler.data.local.SettingsManager
+import com.example.todohandler.notification.TaskAlarmScheduler
+import android.Manifest
+import android.os.Build
+import android.content.pm.PackageManager
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,7 +41,15 @@ class MainActivity : ComponentActivity() {
         val database = AppDatabase.getDatabase(this)
         val repository = TaskRepository(database.taskDao())
         val settingsManager = SettingsManager(this)
-        val factory = TaskViewModelFactory(repository, settingsManager)
+        val alarmScheduler = TaskAlarmScheduler(this)
+        val factory = TaskViewModelFactory(repository, settingsManager, alarmScheduler)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 101)
+            }
+        }
+
 
         enableEdgeToEdge()
         setContent {

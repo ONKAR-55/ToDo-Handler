@@ -7,8 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.todohandler.domain.TaskLogic
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -58,7 +59,7 @@ fun AddTaskScreen(navController: NavController, viewModel: TaskViewModel) {
                 title = { Text("Create Task", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.navigateUp() }) {
-                        Icon(Icons.Filled.ArrowBack, "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
                     }
                 }
             )
@@ -67,9 +68,10 @@ fun AddTaskScreen(navController: NavController, viewModel: TaskViewModel) {
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        val selectedDateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+                        val rawDateMillis = datePickerState.selectedDateMillis ?: System.currentTimeMillis()
+                        val normalizedDateMillis = TaskLogic.getStartOfDayMillis(rawDateMillis)
                         val startCalendar = Calendar.getInstance().apply {
-                            timeInMillis = selectedDateMillis
+                            timeInMillis = rawDateMillis
                             set(Calendar.HOUR_OF_DAY, timePickerState.hour)
                             set(Calendar.MINUTE, timePickerState.minute)
                         }
@@ -87,7 +89,7 @@ fun AddTaskScreen(navController: NavController, viewModel: TaskViewModel) {
                                     else -> com.example.todohandler.data.model.TaskPriority.LOW
                                 },
                                 status = com.example.todohandler.data.model.TaskStatus.PENDING,
-                                dateMillis = selectedDateMillis,
+                                dateMillis = normalizedDateMillis,
                                 startTimeMillis = startTimeMillis,
                                 durationMinutes = duration
                             )

@@ -11,19 +11,26 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
 import com.example.todohandler.data.model.TaskStatus
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(viewModel: TaskViewModel, navController: NavHostController) {
     val allTasks by viewModel.allTasks.collectAsState(initial = emptyList())
+    
+    var selectedFilter by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("All") }
     
     val completedCount = allTasks.count { it.status == TaskStatus.COMPLETED }
     val missedCount = allTasks.count { it.status == TaskStatus.MISSED }
@@ -34,7 +41,14 @@ fun HistoryScreen(viewModel: TaskViewModel, navController: NavHostController) {
         0
     }
 
-    val groupedTasks = allTasks.groupBy { it.dateMillis / 86400000L }.toSortedMap(reverseOrder())
+    val filteredTasks = when (selectedFilter) {
+        "Completed" -> allTasks.filter { it.status == TaskStatus.COMPLETED }
+        "Missed" -> allTasks.filter { it.status == TaskStatus.MISSED }
+        "Deleted" -> allTasks.filter { it.status == TaskStatus.DELETED }
+        else -> allTasks
+    }
+
+    val groupedTasks = filteredTasks.groupBy { it.dateMillis / 86400000L }.toSortedMap(reverseOrder())
 
     Scaffold(
         topBar = {
@@ -62,13 +76,13 @@ fun HistoryScreen(viewModel: TaskViewModel, navController: NavHostController) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("Success Rate", fontSize = 12.sp, color = Color.Gray)
                             Text("$successRate%", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                            LinearProgressIndicator(progress = { successRate / 100f },)
+                            LinearProgressIndicator(progress = { successRate / 100f })
                         }
                     }
                     Card(modifier = Modifier.weight(1f)) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Logged vs Missed", fontSize = 12.sp, color = Color.Gray)
-                            Row(horizontalArrangement = Arrangement.spacedBy(50.dp)) {
+                            Text("Completed vs Missed", fontSize = 12.sp, color = Color.Gray)
+                            Row(horizontalArrangement = Arrangement.spacedBy(70.dp)) {
                                 Text("$completedCount", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                                 Text("$missedCount", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
                             }
@@ -76,25 +90,20 @@ fun HistoryScreen(viewModel: TaskViewModel, navController: NavHostController) {
                     }
                 }
             }
-            
-            // Calendar Navigator Bar
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    Button(onClick = {}) { Text("This Week") }
-                    Button(onClick = {}) { Text("Month") }
-                }
-            }
 
             // Filter Carousel
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    FilterChip(selected = true, onClick = {}, label = { Text("All (${allTasks.size})") })
-                    FilterChip(selected = false, onClick = {}, label = { Text("Completed ($completedCount)") })
-                    FilterChip(selected = false, onClick = {}, label = { Text("Missed ($missedCount)") })
-                    FilterChip(selected = false, onClick = {}, label = {Text("Deleted($deletedCount)")})
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(90.dp) ) {
+                        Column (horizontalAlignment = Alignment.CenterHorizontally) {
+                            FilterChip(modifier = Modifier.width(150.dp), selected = selectedFilter == "All", onClick = { selectedFilter = "All" }, label = { Text("All  (${allTasks.size})", fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(), fontSize = 17.sp) })
+                            FilterChip(modifier = Modifier.width(150.dp), selected = selectedFilter == "Completed", onClick = { selectedFilter = "Completed" }, label = { Text("Completed  ($completedCount)", fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontSize = 17.sp, modifier = Modifier.fillMaxWidth()) })
+                        }
+                        Column (horizontalAlignment = Alignment.CenterHorizontally) {
+                            FilterChip(modifier = Modifier.width(150.dp), selected = selectedFilter == "Missed", onClick = { selectedFilter = "Missed" }, label = { Text("Missed  ($missedCount)", fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontSize = 17.sp, modifier = Modifier.fillMaxWidth()) })
+                            FilterChip(modifier = Modifier.width(150.dp), selected = selectedFilter == "Deleted", onClick = { selectedFilter = "Deleted" }, label = {Text("Deleted  ($deletedCount)", fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, fontSize = 17.sp, modifier = Modifier.fillMaxWidth())})
+                        }
+                    }
                 }
             }
 
@@ -107,7 +116,9 @@ fun HistoryScreen(viewModel: TaskViewModel, navController: NavHostController) {
             // Historical Timeline Feed
             groupedTasks.forEach { (dayIndex, dayTasks) ->
                 item {
-                    Text("Day Index: $dayIndex", fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
+                    val date = LocalDate.ofEpochDay(dayIndex.toLong())
+                    val formatDate = date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault()))
+                    Text("Day : $formatDate", fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 8.dp))
                 }
                 items(dayTasks) { task ->
                     val isSuccess = task.status == TaskStatus.COMPLETED
@@ -116,7 +127,6 @@ fun HistoryScreen(viewModel: TaskViewModel, navController: NavHostController) {
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }
-            
             item { Spacer(modifier = Modifier.height(32.dp)) }
         }
     }

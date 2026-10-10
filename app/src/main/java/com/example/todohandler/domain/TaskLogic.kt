@@ -34,6 +34,17 @@ object TaskLogic {
         return calendar.timeInMillis
     }
 
+    fun getStartOfDayMillis(millis: Long): Long {
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = millis
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        return calendar.timeInMillis
+    }
+
     fun getEndOfDayMillis(dateMillis: Long): Long {
         return dateMillis + 24 * 60 * 60 * 1000 - 1
     }
