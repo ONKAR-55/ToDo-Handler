@@ -23,6 +23,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :taskId")
     suspend fun getTaskById(taskId: Long): TaskEntity?
 
+    @Query("SELECT * FROM tasks WHERE (dateMillis >= :sinceMillis OR startTimeMillis >= :sinceMillis) ORDER BY dateMillis DESC, startTimeMillis DESC")
+    suspend fun getTasksSince(sinceMillis: Long): List<TaskEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTask(task: TaskEntity): Long
 

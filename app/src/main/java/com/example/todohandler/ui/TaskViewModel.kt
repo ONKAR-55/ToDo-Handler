@@ -6,8 +6,10 @@ import com.example.todohandler.data.local.SettingsManager
 import com.example.todohandler.data.model.TaskEntity
 import com.example.todohandler.data.model.TaskStatus
 import com.example.todohandler.data.repository.TaskRepository
+import com.example.todohandler.domain.CsvExporter
 import com.example.todohandler.domain.TaskLogic
 import com.example.todohandler.notification.TaskAlarmScheduler
+import java.util.Calendar
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -144,5 +146,19 @@ class TaskViewModel(
         viewModelScope.launch {
             kotlinx.coroutines.delay(900.milliseconds) // Simulate refresh or perform any manual sync/check if needed
         }
+    }
+
+    suspend fun exportTasksLast30DaysCsv(): Pair<Int, String> {
+        val calendar = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -30)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val sinceMillis = calendar.timeInMillis
+        val tasks = repository.getTasksSince(sinceMillis)
+        val csv = CsvExporter.convertTasksToCsv(tasks)
+        return Pair(tasks.size, csv)
     }
 }

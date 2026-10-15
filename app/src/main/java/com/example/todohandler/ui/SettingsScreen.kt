@@ -1,24 +1,75 @@
 package com.example.todohandler.ui
 
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: TaskViewModel, navController: NavHostController) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isExporting by remember { mutableStateOf(false) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    isExporting = true
+                    val (count, csvData) = viewModel.exportTasksLast30DaysCsv()
+                    context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        outputStream.write(csvData.toByteArray(Charsets.UTF_8))
+                        outputStream.flush()
+                    }
+                    withContext(Dispatchers.Main) {
+                        isExporting = false
+                        Toast.makeText(
+                            context,
+                            "Exported $count task(s) successfully!",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        isExporting = false
+                        Toast.makeText(
+                            context,
+                            "Failed to export: ${e.localizedMessage ?: "Unknown error"}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -69,7 +120,6 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavHostController) {
                         }
                     }
                 }
-
             }
             
             // Time Window Rules
@@ -105,8 +155,36 @@ fun SettingsScreen(viewModel: TaskViewModel, navController: NavHostController) {
             item {
                 Text("Data & Portability", fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 ListItem(
-                    headlineContent = { Text("Export Task History") },
-                    supportingContent = { Text("Download complete logs as CSV or JSON format") }
+                    headlineContent = { Text("Export Tasks (Last 30 Days)") },
+                    supportingContent = { Text("Save tasks created or scheduled in the last 30 days as CSV") },
+                    leadingContent = {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Export CSV",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    },
+                    trailingContent = {
+                        if (isExporting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            FilledTonalButton(
+                                onClick = {
+                                    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                                    exportLauncher.launch("tasks_export_$timeStamp.csv")
+                                }
+                            ) {
+                                Text("Export")
+                            }
+                        }
+                    },
+                    modifier = Modifier.clickable(enabled = !isExporting) {
+                        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+                        exportLauncher.launch("tasks_export_$timeStamp.csv")
+                    }
                 )
                 HorizontalDivider()
             }

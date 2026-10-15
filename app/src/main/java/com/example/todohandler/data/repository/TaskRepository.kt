@@ -10,4 +10,6 @@ class TaskRepository(private val taskDao: TaskDao) {
     suspend fun insertTask(task: TaskEntity): Long = taskDao.insertTask(task)
 
     suspend fun updateTask(task: TaskEntity) = taskDao.updateTask(task)
+
+    suspend fun getTasksSince(sinceMillis: Long): List<TaskEntity> = taskDao.getTasksSince(sinceMillis)
 }
